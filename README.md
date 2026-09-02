@@ -285,6 +285,51 @@ The current PID filter is:
 
 Update it before processing samples with species not on this list; otherwise those candidates will be removed.
 
+## Combine NPZ files into training shards
+
+Use `combine_npz_shards.py` to merge individual AI-ready NPZ files into larger compressed shards. The script preserves the existing arrays:
+
+```python
+event_ids
+events
+```
+
+It processes input files in sorted filename order. Since EventIDs may restart at `0` or `1` in each input file, it offsets every subsequent file so that all output EventIDs are unique.
+
+For example, if one file contains EventIDs `0–999` and the next file again contains `0–999`, the second file is shifted to `1000–1999`.
+
+Create approximately 0.5 GB shards:
+
+```bash
+python AIReadyProcessing/combine_npz_shards.py \
+  --folder_to_compress /path/to/input_npz_files \
+  --output_file /path/to/combined/combined_photons.npz \
+  --max_shard_gb 0.5
+```
+
+This writes numbered output files:
+
+```text
+combined_photons_00000.npz
+combined_photons_00001.npz
+combined_photons_00002.npz
+...
+```
+
+The script starts a new shard only between source NPZ files. If one individual input file is larger than the requested shard size, it is written as its own shard and may exceed the target.
+
+A 0.5 GB compressed shard is expected to contain roughly 1.2 GB of uncompressed NPZ payload, and may occupy approximately 2–4 GB RAM after unpickling into Python event dictionaries. Use smaller shards or load fewer shards per DDP rank if memory is limited.
+
+If output files with the requested prefix already exist, choose a new output prefix or explicitly overwrite them:
+
+```bash
+python AIReadyProcessing/combine_npz_shards.py \
+  --folder_to_compress /path/to/input_npz_files \
+  --output_file /path/to/combined/combined_photons.npz \
+  --max_shard_gb 0.5 \
+  --overwrite
+```
+
 ## Validation checklist
 
 1. Run a small particle-gun sample for the intended species.
